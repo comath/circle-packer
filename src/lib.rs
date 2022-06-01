@@ -1,14 +1,14 @@
+//! A circle packing utility.
+//! 
+//! 
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Circle {
     pub x: f32,
     pub y: f32,
     pub radius: f32,
 }
-/*
-math.acos(
-    (distance_nodes(cm,cn)**2+(cm.radius+radius)**2-(cn.radius+radius)**2) /
-    (2*(cm.radius+radius)*distance_nodes(cm,cn)))
-*/
+
 impl Circle {
     pub fn distance_to_origin(&self) -> f32 {
         (self.x * self.x + self.y * self.y).sqrt()
@@ -130,6 +130,7 @@ pub struct CirclePacker {
 }
 
 impl CirclePacker {
+    /// Adds a radius to the packer.
     pub fn push(&mut self, radius: f32) {
         self.radii.push(radius);
 
@@ -167,6 +168,27 @@ impl CirclePacker {
         }
     }
 
+    /// Returns a copy of the circles accumulated so far.
+    pub fn circles(&self) -> Vec<Circle> {
+        self.circles.clone()
+    }
+
+    /// Returns a copy of the circles accumulated so far, embedded in the provided circle.
+    pub fn circles_in(&self, embedding_circle: &Circle) -> Vec<Circle> {
+        if let Some(radius) = self.circles.iter().map(|c| c.distance_to_origin() + c.radius).max_by(|a,b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
+            let radius_ratio = embedding_circle.radius / radius;
+            self.circles.iter().map(|c| {
+                Circle {
+                    x: c.x*radius_ratio + embedding_circle.x,
+                    y: c.y*radius_ratio + embedding_circle.y,
+                    radius: c.radius * radius_ratio,
+                }
+            }).collect()
+        } else {
+            self.circles.clone()
+        }
+    }
+
     fn candidate(&self, radius: f32, index: usize, next_index: usize) -> Circle {
         let (solution_1, solution_2) = Circle::new_node(radius, &self.circles[self.front[index]], &self.circles[self.front[next_index]]);
         let c1 = &self.circles[self.front[index]]; 
@@ -179,21 +201,6 @@ impl CirclePacker {
             solution_2
         } else {
             solution_1
-        }
-    }
-
-    pub fn circles(&self, embedding_circle: Option<&Circle>) -> Vec<Circle> {
-        if let (Some(embedding_circle), Some(radius)) = (embedding_circle,self.circles.iter().map(|c| c.distance_to_origin() + c.radius).max_by(|a,b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))) {
-            let radius_ratio = embedding_circle.radius / radius;
-            self.circles.iter().map(|c| {
-                Circle {
-                    x: c.x*radius_ratio + embedding_circle.x,
-                    y: c.y*radius_ratio + embedding_circle.y,
-                    radius: c.radius * radius_ratio,
-                }
-            }).collect()
-        } else {
-            self.circles.clone()
         }
     }
 
@@ -284,18 +291,22 @@ impl CirclePacker {
     }
 }
 
-/// Sorts the radii for you for better results
+/// Sorts the radii for you for better results. This is sorted, so it isn't stable. 
+/// The packing can change drastically depending on the relative size of the provided radii.
+/// Sorting the radii like this tends to produce a more efficient packing.
 #[derive(Debug, Clone, Default)]
 pub struct CircleSortedPacker {
     radii: Vec<(usize,f32)>,
 }
 
 impl CircleSortedPacker {
+    /// Adds a circle to the packer.
     pub fn push(&mut self, radius: f32) {
         self.radii.push((self.radii.len(),radius));
         self.radii.sort_by(|a,b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     }
 
+    /// This makes a packer, then packs all the radii provided so far in descending order. It returns the circles back in the provided order.
     pub fn circles(&self) -> Vec<Circle> {
         let mut circles =  vec![Circle::default(); self.radii.len()];
         let mut packer = CirclePacker::default();
@@ -308,6 +319,7 @@ impl CircleSortedPacker {
         circles
     }
 
+    /// Same thing as the `circles` method, but embeds it in the provided circle.
     pub fn circles_in(&self, embedding_circle: &Circle) -> Vec<Circle> {
         let mut circles =  vec![Circle::default(); self.radii.len()];
         let mut packer = CirclePacker::default();
@@ -408,7 +420,7 @@ mod tests {
             let _entered = span.enter();
             packer.push(*radius);
             front_touches(&packer);
-            let circles = packer.circles(None);
+            let circles = packer.circles();
             for i in 0..circles.len() {
                 assert!(!has_nan(&circles[i]), "Circle {} has a nan on radius {}", i, radius);
                 for j in 0..i {
@@ -455,7 +467,7 @@ mod tests {
                 let radius: f32 = rng.gen();
                 packer.push(100.0f32 * radius);
                 front_touches(&packer);
-                let circles = packer.circles(None);
+                let circles = packer.circles();
                 for i in 0..circles.len() {
                     assert!(!has_nan(&circles[i]), "Circle {} has a nan on radius {}", i, radius);
                     for j in 0..i {
