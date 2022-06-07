@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_circle_packing::{CircleSortedPacker, Circle};
+use circle_packer::{CirclePacker, Circle};
 
 const DEPTH_COLOR: [&'static str;4] = ["blue", "red", "green", "yellow"];
 
@@ -14,7 +14,7 @@ impl Component for CircleNode {
     }
     fn view(&self, ctx: &Context<Self>) -> Html {
         let container = ctx.props().contain.clone();
-        let mut packer = CircleSortedPacker::default();
+        let mut packer = CirclePacker::default();
         ctx.props().nodes.iter().for_each(|n| packer.push(n.radius));
         let circles = packer.circles_in(&container);
         let color = DEPTH_COLOR[ctx.props().depth];

@@ -170,23 +170,28 @@ impl CirclePacker {
 
     /// Returns a copy of the circles accumulated so far.
     pub fn circles(&self) -> Vec<Circle> {
-        self.circles.clone()
+        let (center_x, center_y) = self.center_of_mass();
+        self.circles.iter().map(|c| {
+            Circle {
+                x: c.x - center_x,
+                y: c.y - center_y,
+                radius: c.radius,
+            }
+        }).collect()
     }
 
     /// Returns a copy of the circles accumulated so far, embedded in the provided circle.
     pub fn circles_in(&self, embedding_circle: &Circle) -> Vec<Circle> {
-        if let Some(radius) = self.circles.iter().map(|c| c.distance_to_origin() + c.radius).max_by(|a,b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
+        let mut center_circles = self.circles();
+        if let Some(radius) = center_circles.iter().map(|c| c.distance_to_origin() + c.radius).max_by(|a,b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
             let radius_ratio = embedding_circle.radius / radius;
-            self.circles.iter().map(|c| {
-                Circle {
-                    x: c.x*radius_ratio + embedding_circle.x,
-                    y: c.y*radius_ratio + embedding_circle.y,
-                    radius: c.radius * radius_ratio,
-                }
+            center_circles.iter_mut().map(|c| {
+                c.x = c.x*radius_ratio + embedding_circle.x;
+                c.y = c.y*radius_ratio + embedding_circle.y;
+                c.radius = c.radius * radius_ratio;
             }).collect()
-        } else {
-            self.circles.clone()
         }
+        center_circles
     }
 
     fn candidate(&self, radius: f32, index: usize, next_index: usize) -> Circle {
@@ -289,6 +294,13 @@ impl CirclePacker {
             )
         }
     }
+
+    fn center_of_mass(&self) -> (f32, f32) {
+        let x: f32 = self.circles.iter().map(|c| c.x * (std::f32::consts::PI * c.radius.powi(2))).sum();
+        let y: f32 = self.circles.iter().map(|c| c.y * (std::f32::consts::PI * c.radius.powi(2))).sum();
+        let radius: f32 = self.circles.iter().map(|c| (std::f32::consts::PI * c.radius.powi(2))).sum();
+        (x/radius, y/radius)
+    }
 }
 
 /// Sorts the radii for you for better results. This is sorted, so it isn't stable. 
@@ -313,8 +325,8 @@ impl CircleSortedPacker {
         for (_,f) in &self.radii {
             packer.push(*f);
         }
-        packer.circles.iter().zip(&self.radii).for_each(|(circle, (i,_))| {
-            circles[*i] = circle.clone();
+        packer.circles().drain(..).zip(&self.radii).for_each(|(circle, (i,_))| {
+            circles[*i] = circle;
         });
         circles
     }
@@ -326,18 +338,9 @@ impl CircleSortedPacker {
         for (_,f) in &self.radii {
             packer.push(*f);
         }
-        tracing::info!("Packer: {:?}", packer);
-        if let Some(radius) = packer.circles.iter().map(|c| c.distance_to_origin() + c.radius).max_by(|a,b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
-            let radius_ratio = embedding_circle.radius / radius;
-            tracing::info!("Embedding Radius: {:?}, radius: {}, ratio: {}", embedding_circle.radius, radius, radius_ratio);
-
-            packer.circles.iter().zip(&self.radii).for_each(|(circle, (i,_))| {
-                circles[*i].x = circle.x*radius_ratio + embedding_circle.x;
-                circles[*i].y = circle.y*radius_ratio + embedding_circle.y;
-                circles[*i].radius = circle.radius*radius_ratio;
-            });
-        }
-        tracing::info!("Circles: {:?}", circles);
+        packer.circles_in(embedding_circle).drain(..).zip(&self.radii).for_each(|(circle, (i,_))| {
+            circles[*i] = circle;
+        });
         circles
     }
 }
@@ -478,6 +481,20 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn contained() {
+        let mut packer = CirclePacker::default();
+        for radius in [32.0, 38.1, 35.2, 1.3, 49.4, 2.5, 85.6, 84.7, 29.8, 7.9, 31.10, 6.11, 11.12] {
+            packer.push(radius);
+        }
+        let embedding_circle = Circle {x: 10.0, y: 100.0, radius: 350.0};
+        let circles = packer.circles_in(&embedding_circle);
+        for circle in circles {
+            assert!(circle.distance(&embedding_circle) + circle.radius <= 350.0 + 1e-4);
         }
     }
 }

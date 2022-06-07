@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 yew = "0.19"
 tracing-wasm = "0.2.1"
-yew-circle-packing = {path = "../../"}
+circle-packer = {path = "../../"}
