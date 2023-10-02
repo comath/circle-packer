@@ -2,6 +2,8 @@
 name = "circle-packer"
 version = "0.1.1"
 edition = "2021"
+description = "Implements a circle packing algorithm: https://en.wikipedia.org/wiki/Circle_packing_theorem"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

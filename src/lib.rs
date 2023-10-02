@@ -312,7 +312,7 @@ impl CirclePacker {
     }
 }
 
-/// Sorts the radii for you for better results. This is sorted, so it isn't stable. 
+/// Sorts the radii for you for better results. This is sorted, so it isn't stable (the order changes). 
 /// The packing can change drastically depending on the relative size of the provided radii.
 /// Sorting the radii like this tends to produce a more efficient packing.
 #[derive(Debug, Clone, Default)]
