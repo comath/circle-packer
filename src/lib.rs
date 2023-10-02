@@ -2,7 +2,16 @@
 //! 
 //! 
 
+#[cfg(not(feature = "serde"))]
 #[derive(Debug, Clone, PartialEq, Default)]
+pub struct Circle {
+    pub x: f32,
+    pub y: f32,
+    pub radius: f32,
+}
+
+#[cfg(feature = "serde")]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct Circle {
     pub x: f32,
     pub y: f32,
